@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Cell Quest: The Micro Adventure!</title>
+  <style>
+    body {
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+      background-color: #e0fff7;
+      color: #333;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+    #game-container {
+      margin: 24px auto;
+      max-width: 680px;
+      background: #fff;
+      border-radius: 22px;
+      box-shadow: 0 0 16px #7ae6c6;
+      padding: 36px 12px 36px 12px;
+      min-height: 400px;
+    }
+    button {
+      padding: 10px 25px;
+      margin: 8px 8px 0 8px;
+      background: #7ae6c6;
+      border: none;
+      border-radius: 10px;
+      font-size: 1.2em;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background: #3cc59e; color: white; }
+    .cell-img {
+      width: 220px;
+      max-width: 95vw;
+      display: block;
+      margin: 20px auto 10px auto;
+    }
+    ul {
+      list-style: disc inside;
+      text-align: left;
+      margin: 12px auto 12px auto;
+      max-width: 350px;
+      padding-left: 0;
+    }
+    .fact-list, .drop-list {
+      min-height: 30px;
+      border: 1.5px dashed #3cc59e;
+      border-radius: 8px;
+      margin: 8px 0;
+      background: #f7fff9;
+      min-width: 120px;
+      padding: 8px;
+    }
+    .drag-item {
+      display: inline-block;
+      background: #e8fcec;
+      border-radius: 8px;
+      padding: 7px 16px;
+      margin: 7px 7px 0 7px;
+      font-size: 1em;
+      cursor: grab;
+      border: 1px solid #3cc59e;
+      transition: background 0.2s;
+    }
+    .drag-item.dragging {
+      opacity: 0.6;
+      background: #a6ffda;
+    }
+    .drop-list.highlight {
+      background: #bdfbe1;
+      border-color: #1ebc8d;
+    }
+    .cell-title {
+      color: #219174;
+      margin-bottom: 0;
+    }
+    .feedback {
+      font-size: 1.1em;
+      margin-top: 10px;
+      min-height: 24px;
+    }
+    .quiz-question {
+      font-size: 1.15em;
+      margin-bottom: 18px;
+      margin-top: 10px;
+    }
+    .quiz-score {
+      font-size: 1.2em;
+      margin-bottom: 14px;
+    }
+    @media (max-width: 750px) {
+      #game-container { max-width: 98vw; padding: 1vw; }
+      .cell-img { max-width: 99vw; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Cell Quest: The Micro Adventure!</h1>
+  <div id="game-container"></div>
+  <script>
+    // SVGs for each cell type
+    const svgs = {
+      "Prokaryote": `<svg class="cell-img" viewBox="0 0 240 180">
+        <ellipse cx="120" cy="90" rx="95" ry="65" fill="#faffc1" stroke="#9f9f22" stroke-width="5"/>
+        <ellipse cx="120" cy="90" rx="75" ry="45" fill="#fffef9" stroke="#a7a774" stroke-width="2"/>
+        <circle cx="60" cy="70" r="10" fill="#b2e3f7" stroke="#3a7391" stroke-width="2"/>
+        <rect x="135" y="120" width="18" height="8" rx="3" fill="#eac6f2" stroke="#9b33a5" stroke-width="1"/>
+        <ellipse cx="110" cy="100" rx="35" ry="9" fill="none" stroke="#b37700" stroke-width="2" />
+        <ellipse cx="110" cy="100" rx="19" ry="4" fill="none" stroke="#b37700" stroke-width="2" />
+      </svg>`,
+      "Eukaryote": `<svg class="cell-img" viewBox="0 0 240 180">
+        <ellipse cx="120" cy="90" rx="95" ry="65" fill="#e0f5ff" stroke="#2196f3" stroke-width="5"/>
+        <ellipse cx="120" cy="90" rx="70" ry="50" fill="#fff" stroke="#2196f3" stroke-width="2"/>
+        <ellipse cx="120" cy="90" rx="24" ry="18" fill="#cab2f7" stroke="#5b23a0" stroke-width="2"/>
+        <ellipse cx="120" cy="90" rx="12" ry="8" fill="#fff" stroke="#5b23a0" stroke-width="1"/>
+        <rect x="170" y="110" width="18" height="8" rx="3" fill="#b2e3f7" stroke="#2196f3" stroke-width="1"/>
+        <rect x="70" y="120" width="16" height="7" rx="3" fill="#b2e3f7" stroke="#2196f3" stroke-width="1"/>
+        <circle cx="90" cy="70" r="7" fill="#ffd8b2" stroke="#e09127" stroke-width="1"/>
+      </svg>`,
+      "Animal Cell": `<svg class="cell-img" viewBox="0 0 240 180">
+        <ellipse cx="120" cy="90" rx="90" ry="65" fill="#e0fff7" stroke="#219174" stroke-width="5"/>
+        <ellipse cx="120" cy="90" rx="60" ry="40" fill="#fff" stroke="#219174" stroke-width="2"/>
+        <ellipse cx="120" cy="90" rx="24" ry="16" fill="#ffe0d4" stroke="#c9734a" stroke-width="2"/>
+        <ellipse cx="120" cy="90" rx="13" ry="7" fill="#fff" stroke="#c9734a" stroke-width="1"/>
+        <rect x="145" y="120" width="14" height="7" rx="2" fill="#b2e3f7" stroke="#219174" stroke-width="1"/>
+        <circle cx="85" cy="75" r="6" fill="#ffd8b2" stroke="#e09127" stroke-width="1"/>
+        <ellipse cx="170" cy="100" rx="7" ry="4" fill="#eac6f2" stroke="#9b33a5" stroke-width="1"/>
+      </svg>`,
+      "Plant Cell": `<svg class="cell-img" viewBox="0 0 240 180">
+        <rect x="25" y="25" width="190" height="130" rx="30" fill="#e3ffc9" stroke="#4caf50" stroke-width="5"/>
+        <rect x="50" y="50" width="140" height="80" rx="25" fill="#fff" stroke="#4caf50" stroke-width="2"/>
+        <ellipse cx="120" cy="90" rx="24" ry="16" fill="#d4ffec" stroke="#219174" stroke-width="2"/>
+        <ellipse cx="120" cy="90" rx="12" ry="8" fill="#fff" stroke="#219174" stroke-width="1"/>
+        <ellipse cx="70" cy="120" rx="22" ry="10" fill="#97ed72" stroke="#388e3c" stroke-width="2"/>
+        <circle cx="180" cy="70" r="11" fill="#b8e986" stroke="#4caf50" stroke-width="2"/>
+      </svg>`
+    };
+
+    // --- Data ---
+    const cellTypes = [
+      {
+        name: "Prokaryote",
+        image: svgs["Prokaryote"],
+        description: "A simple cell without a nucleus. Example: Bacteria.",
+        characteristics: [
+          "No nucleus",
+          "No membrane-bound organelles",
+          "Smaller size",
+          "DNA floats in the cytoplasm",
+          "Example: Bacteria"
+        ]
+      },
+      {
+        name: "Eukaryote",
+        image: svgs["Eukaryote"],
+        description: "A complex cell with a nucleus. Includes animal and plant cells.",
+        characteristics: [
+          "Has a nucleus",
+          "Has membrane-bound organelles",
+          "Larger size",
+          "Examples: Animal and Plant cells"
+        ]
+      },
+      {
+        name: "Animal Cell",
+        image: svgs["Animal Cell"],
+        description: "A eukaryotic cell found in animals.",
+        characteristics: [
+          "No cell wall",
+          "Has nucleus",
+          "Has lysosomes",
+          "Round or irregular shape",
+          "Has small vacuoles"
+        ]
+      },
+      {
+        name: "Plant Cell",
+        image: svgs["Plant Cell"],
+        description: "A eukaryotic cell found in plants.",
+        characteristics: [
+          "Has cell wall",
+          "Has chloroplasts",
+          "Has large central vacuole",
+          "Boxy or rectangular shape",
+          "Has nucleus"
+        ]
+      }
+    ];
+
+    // --- Extra Quiz Game Data ---
+    const quizQuestions = [
+      {
+        question: "Which cell type has a cell wall?",
+        answers: ["Animal Cell", "Plant Cell", "Prokaryote", "Eukaryote"],
+        correct: "Plant Cell"
+      },
+      {
+        question: "Which cell type contains chloroplasts?",
+        answers: ["Animal Cell", "Plant Cell", "Prokaryote", "Eukaryote"],
+        correct: "Plant Cell"
+      },
+      {
+        question: "Which cell type has no nucleus?",
+        answers: ["Eukaryote", "Prokaryote", "Plant Cell", "Animal Cell"],
+        correct: "Prokaryote"
+      },
+      {
+        question: "Which cells can be eukaryotic?",
+        answers: ["Plant Cell", "Animal Cell", "Both", "Neither"],
+        correct: "Both"
+      },
+      {
+        question: "Which is typically smaller?",
+        answers: ["Prokaryote", "Eukaryote", "Animal Cell", "Plant Cell"],
+        correct: "Prokaryote"
+      },
+      {
+        question: "Where does DNA float in the cytoplasm?",
+        answers: ["Prokaryote", "Eukaryote", "Plant Cell", "Animal Cell"],
+        correct: "Prokaryote"
+      }
+    ];
+
+    // --- Game State ---
+    let stage = 0; // 0: Which is Which | 1: Characteristics | 2: Showdown | 3: Quiz | 4: End
+    let cellIdx = 0;
+    let score = 0;
+    let factsShowdown = [];
+    let showdownMatches = {};
+    let showdownAttempt = 0; // Track attempts for the showdown
+    let quizIdx = 0;
+    let quizScore = 0;
+
+    // --- Utility functions ---
+    function shuffle(arr) {
+      let array = arr.slice();
+      for (let i = array.length - 1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    // --- UI Rendering ---
+    function renderCellQuestion() {
+      const cellOrder = shuffle([0,1,2,3]);
+      cellIdx = 0;
+      score = 0;
+      function ask() {
+        const idx = cellOrder[cellIdx];
+        const cell = cellTypes[idx];
+        let choices = shuffle(cellTypes.map(c => c.name));
+        const container = document.getElementById('game-container');
+        container.innerHTML = `
+          <h2>Which cell is this?</h2>
+          ${cell.image}
+          <div>
+            ${choices.map(option =>
+              `<button data-cell="${option}">${option}</button>`
+            ).join("")}
+          </div>
+          <div class="feedback" id="feedback"></div>
+        `;
+        Array.from(container.querySelectorAll('button')).forEach(btn => {
+          btn.onclick = function() {
+            const answer = btn.getAttribute('data-cell');
+            const correct = cell.name;
+            const feedback = document.getElementById('feedback');
+            if (answer === correct) {
+              feedback.innerHTML = '<span style="color:green">Correct!</span>';
+              score++;
+            } else {
+              feedback.innerHTML = `<span style="color:red">Oops! Try again!</span>`;
+            }
+            setTimeout(() => {
+              cellIdx++;
+              if (cellIdx < cellOrder.length) {
+                ask();
+              } else {
+                setTimeout(renderCharacteristics, 700);
+              }
+            }, 1100);
+          };
+        });
+      }
+      ask();
+    }
+
+    function renderCharacteristics() {
+      let idx = 0;
+      function showCell() {
+        const cell = cellTypes[idx];
+        const container = document.getElementById('game-container');
+        container.innerHTML = `
+          <h2 class="cell-title">${cell.name}</h2>
+          ${cell.image}
+          <div style="margin-bottom: 10px;">${cell.description}</div>
+          <ul>
+            ${cell.characteristics.map(c => `<li>${c}</li>`).join("")}
+          </ul>
+          <button id="next-cell">${idx < cellTypes.length - 1 ? 'Next' : 'Start Showdown!'}</button>
+        `;
+        document.getElementById('next-cell').onclick = function() {
+          idx++;
+          if (idx < cellTypes.length) showCell();
+          else setTimeout(() => { showdownAttempt = 0; renderShowdown(); }, 500);
+        };
+      }
+      showCell();
+    }
+
+    function renderShowdown() {
+      // Prepare facts for drag-drop
+      factsShowdown = [
+        { text: "Has a cell wall", correct: "Plant Cell" },
+        { text: "Has chloroplasts", correct: "Plant Cell" },
+        { text: "Has large central vacuole", correct: "Plant Cell" },
+        { text: "No cell wall", correct: "Animal Cell" },
+        { text: "Has lysosomes", correct: "Animal Cell" },
+        { text: "Round or irregular shape", correct: "Animal Cell" },
+        { text: "DNA floats in cytoplasm", correct: "Prokaryote" },
+        { text: "No nucleus", correct: "Prokaryote" },
+        { text: "Has a nucleus", correct: "Eukaryote" },
+        { text: "Has membrane-bound organelles", correct: "Eukaryote" }
+      ];
+      factsShowdown = shuffle(factsShowdown);
+      showdownMatches = {};
+      for (let c of ["Animal Cell", "Plant Cell", "Prokaryote", "Eukaryote"]) showdownMatches[c] = [];
+
+      const container = document.getElementById('game-container');
+      container.innerHTML = `
+        <h2>Cell Showdown! Drag each fact to the correct cell type</h2>
+        <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:24px; margin-bottom:16px;">
+          <div>
+            <strong>Animal Cell</strong>
+            <div class="drop-list" id="drop-Animal Cell"></div>
+          </div>
+          <div>
+            <strong>Plant Cell</strong>
+            <div class="drop-list" id="drop-Plant Cell"></div>
+          </div>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:24px;">
+          <div>
+            <strong>Prokaryote</strong>
+            <div class="drop-list" id="drop-Prokaryote"></div>
+          </div>
+          <div>
+            <strong>Eukaryote</strong>
+            <div class="drop-list" id="drop-Eukaryote"></div>
+          </div>
+        </div>
+        <div style="margin-top:20px;">
+          <h3>Facts:</h3>
+          <div class="fact-list" id="factList" style="min-height: 60px;">
+            ${factsShowdown.map((fact,i) => `<span class="drag-item" id="fact-${i}" draggable="true" data-idx="${i}">${fact.text}</span>`).join("")}
+          </div>
+        </div>
+        <button id="finish" style="margin-top:22px;">Check Answers</button>
+        <div class="feedback" id="feedback"></div>
+      `;
+
+      // Drag-drop logic
+      let dragged = null;
+      function handleDragStart(e) {
+        dragged = e.target;
+        e.target.classList.add('dragging');
+        setTimeout(() => e.target.style.display = "none", 0);
+      }
+      function handleDragEnd(e) {
+        e.target.classList.remove('dragging');
+        e.target.style.display = "";
+      }
+      function handleDragOver(e) {
+        e.preventDefault();
+        this.classList.add('highlight');
+      }
+      function handleDragLeave(e) {
+        this.classList.remove('highlight');
+      }
+      function handleDrop(e) {
+        e.preventDefault();
+        this.classList.remove('highlight');
+        if (dragged && this !== dragged.parentNode) {
+          this.appendChild(dragged);
+        }
+      }
+
+      for (let i = 0; i < factsShowdown.length; ++i) {
+        const item = document.getElementById(`fact-${i}`);
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragend', handleDragEnd);
+      }
+      for (let type of ["Animal Cell", "Plant Cell", "Prokaryote", "Eukaryote"]) {
+        const dropZone = document.getElementById("drop-" + type);
+        dropZone.addEventListener('dragover', handleDragOver);
+        dropZone.addEventListener('dragleave', handleDragLeave);
+        dropZone.addEventListener('drop', handleDrop);
+      }
+      document.getElementById("factList").addEventListener('dragover', handleDragOver);
+      document.getElementById("factList").addEventListener('dragleave', handleDragLeave);
+      document.getElementById("factList").addEventListener('drop', handleDrop);
+
+      document.getElementById('finish').onclick = function() {
+        // Grade answers:
+        let total = factsShowdown.length, correct = 0;
+        for (let type of ["Animal Cell", "Plant Cell", "Prokaryote", "Eukaryote"]) {
+          showdownMatches[type] = [];
+          const zone = document.getElementById("drop-" + type);
+          Array.from(zone.children).forEach(item => {
+            showdownMatches[type].push(item.textContent);
+          });
+        }
+        for (let i = 0; i < factsShowdown.length; ++i) {
+          const f = factsShowdown[i];
+          let placed = false;
+          for (let type in showdownMatches) {
+            if (showdownMatches[type].includes(f.text)) {
+              if (type === f.correct) correct++;
+              placed = true;
+              break;
+            }
+          }
+        }
+        let feedback = document.getElementById('feedback');
+        if (correct === total) {
+          feedback.innerHTML = `<span style="color:green;font-weight:bold;">Awesome! You matched all facts correctly!</span>`;
+          document.getElementById('finish').innerText = "Continue";
+          document.getElementById('finish').onclick = function() {
+            setTimeout(renderQuizGame, 500);
+          };
+        } else {
+          showdownAttempt++;
+          if (showdownAttempt < 2) {
+            // Put all facts back to the fact box for retry
+            feedback.innerHTML = `<span style="color:orange;font-weight:bold;">You got ${correct} out of ${total} facts matched! Try again. All facts have been reset for another try.</span>`;
+            setTimeout(() => {
+              renderShowdown();
+            }, 1300);
+          } else {
+            // On second failure, move to quiz game
+            feedback.innerHTML = `<span style="color:red;font-weight:bold;">You got ${correct} out of ${total}. Now moving to the next game!</span>`;
+            document.getElementById('finish').innerText = "Continue";
+            document.getElementById('finish').onclick = function() {
+              setTimeout(renderQuizGame, 400);
+            };
+          }
+        }
+      };
+    }
+
+    // --- Extra Quiz Game ---
+    function renderQuizGame() {
+      quizIdx = 0;
+      quizScore = 0;
+      showQuizQuestion();
+    }
+
+    function showQuizQuestion() {
+      const container = document.getElementById('game-container');
+      if (quizIdx >= quizQuestions.length) {
+        // End of quiz
+        container.innerHTML = `
+          <h2>Quiz Complete!</h2>
+          <div class="quiz-score">Your score: ${quizScore} / ${quizQuestions.length}</div>
+          <button onclick="startGame()">Play Again</button>
+        `;
+        return;
+      }
+      const q = quizQuestions[quizIdx];
+      const answers = shuffle(q.answers);
+      container.innerHTML = `
+        <h2>Cell Quiz</h2>
+        <div class="quiz-score">Question ${quizIdx+1} of ${quizQuestions.length} | Score: ${quizScore}</div>
+        <div class="quiz-question">${q.question}</div>
+        <div>
+          ${answers.map(ans =>
+            `<button class="quiz-answer-btn" data-ans="${ans}">${ans}</button>`
+          ).join("")}
+        </div>
+        <div class="feedback" id="quiz-feedback"></div>
+      `;
+      Array.from(container.querySelectorAll('.quiz-answer-btn')).forEach(btn => {
+        btn.onclick = function() {
+          const selected = btn.getAttribute('data-ans');
+          const feedback = document.getElementById('quiz-feedback');
+          if (
+            (q.correct === "Both" && (selected === "Animal Cell" || selected === "Plant Cell"))
+              || selected === q.correct
+          ) {
+            feedback.innerHTML = '<span style="color:green">Correct!</span>';
+            quizScore++;
+          } else {
+            feedback.innerHTML = `<span style="color:red">Incorrect! Correct answer: <b>${q.correct}</b></span>`;
+          }
+          setTimeout(() => {
+            quizIdx++;
+            showQuizQuestion();
+          }, 1200);
+        }
+      });
+    }
+
+    function startGame() {
+      stage = 0;
+      cellIdx = 0;
+      score = 0;
+      showdownAttempt = 0;
+      quizIdx = 0;
+      quizScore = 0;
+      renderCellQuestion();
+    }
+
+    // --- Launch ---
+    window.onload = startGame;
+    window.startGame = startGame; // for Play Again button in quiz
+  </script>
+</body>
+</html>
